@@ -2,6 +2,8 @@
 
 A self-balancing robot with light-following capability, built on an **ESP32** with an **MPU6050** IMU, dual DC motors via a **TB6612FNG** driver, and three **LDR** sensors. Includes a real-time Wi-Fi dashboard for live telemetry and PID tuning.
 
+<img width="896" height="1100" alt="Self_Balancing_Robot" src="https://github.com/user-attachments/assets/cf159660-c0c8-45e2-882d-1a2d5c47c9c3" />
+
 ---
 
 ## Features
@@ -56,6 +58,10 @@ A self-balancing robot with light-following capability, built on an **ESP32** wi
 | Center | 2 |
 | Right | 1 |
 
+### Circuit Diagram
+
+<img width="1385" height="752" alt="Circuit_Diagram" src="https://github.com/user-attachments/assets/7a1e4367-3f9d-4cf4-b411-6472ec2b8107" />
+
 ---
 
 ## Software Dependencies
@@ -108,7 +114,7 @@ These may need adjustment for your specific MPU6050 unit. Place the robot perfec
 
 1. Clone this repository
    ```bash
-   git clone https://github.com/YOUR_USERNAME/BalanceBot.git
+   https://github.com/AliAhsan487886/Self-Balancing-Robot.git
    ```
 2. Open `BalanceBot.ino` in the Arduino IDE
 3. Set your Wi-Fi credentials
@@ -131,6 +137,8 @@ The dashboard is served directly by the ESP32 and provides:
 - **Light PID Panel** — Adjust light-following gains without reflashing
 
 Dashboard updates at **100 ms** intervals.
+
+<img width="960" height="540" alt="CSV File Dashborad" src="https://github.com/user-attachments/assets/8da9db1c-7562-40dd-a336-1823ff771b02" />
 
 ---
 
