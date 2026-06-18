@@ -1,210 +1,172 @@
-# Self-Balancing Robot with Light Following
+# 🤖 BalanceBot
 
-**UET Lahore – Electrical Engineering Department**  
-**Control Systems Lab – CEP Labs 12, 13, 14, 15**
+A self-balancing robot with light-following capability, built on an **ESP32** with an **MPU6050** IMU, dual DC motors via a **TB6612FNG** driver, and three **LDR** sensors. Includes a real-time Wi-Fi dashboard for live telemetry and PID tuning.
 
 ---
 
-## Overview
+## Features
 
-This repository contains the complete implementation of a **self-balancing two-wheel robot** (inverted pendulum) with **light-following capability**, developed as a Complex Engineering Problem (CEP) across four control systems lab experiments.
-
-| Lab | Topic | Status |
-|-----|-------|--------|
-| Lab 12 | PID Balance Controller | ✅ |
-| Lab 13 | MIMO Light-Following Control | ✅ |
-| Lab 14 | Model Validation & Parameter Identification | ✅ |
-| Lab 15 | Lead–Lag Controller Design | ✅ |
+- **Self-Balancing** — Complementary filter + PID control running at 100 Hz
+- **Light Following** — Three-LDR array with a separate PID loop at 20 Hz
+- **Live Web Dashboard** — Served directly from the ESP32; no app required
+- **OTA PID Tuning** — Adjust Balance and Light PID gains from the browser in real time
+- **Motor Telemetry** — View angle, error, motor outputs, and sensor values live
 
 ---
 
 ## Hardware
 
-| Component | Part Used |
-|-----------|-----------|
-| Microcontroller | ESP32 DevKit |
-| IMU | MPU6050 (I2C) |
-| Motor Driver | L298N / TB6612FNG |
+| Component | Details |
+|---|---|
+| Microcontroller | ESP32 |
+| IMU | MPU6050 (I²C) |
+| Motor Driver | TB6612FNG |
 | Motors | 2× DC gear motors |
-| Light Sensors | 2× LDR + voltage divider |
-| Power Supply | 7.4 V Li-Po battery |
-| Chassis | 2WD robot platform |
-
-### Wiring Summary
-
-```
-ESP32 GPIO 18  →  Motor Left  PWM
-ESP32 GPIO 19  →  Motor Left  DIR
-ESP32 GPIO 22  →  Motor Right PWM
-ESP32 GPIO 23  →  Motor Right DIR
-ESP32 GPIO 21  →  MPU6050 SDA
-ESP32 GPIO 22  →  MPU6050 SCL   (use separate I2C bus or remap if conflict)
-ESP32 GPIO 34  →  LDR Left  (ADC)
-ESP32 GPIO 35  →  LDR Right (ADC)
-```
+| Light Sensors | 3× LDR (Left / Center / Right) |
+| Power | LiPo battery (recommended) |
 
 ---
 
-## Software Architecture
+## Pin Map
 
-### Lab 12 – PID Balance Controller
+### Motor Driver (TB6612FNG)
 
-The robot is modelled as an **inverted pendulum**:
+| Signal | ESP32 GPIO |
+|---|---|
+| PWMA | 4 |
+| AIN1 | 5 |
+| AIN2 | 6 |
+| PWMB | 16 |
+| BIN1 | 7 |
+| BIN2 | 15 |
+| STBY | 10 |
 
-```
-θ'' = a·θ + b·u
-```
+### MPU6050 (I²C)
 
-A PID controller stabilizes the tilt angle:
+| Signal | ESP32 GPIO |
+|---|---|
+| SDA | 8 |
+| SCL | 9 |
 
-```
-u = Kp·e + Ki·∫e dt + Kd·de/dt
-```
+### LDR Sensors (Analog)
 
-Tilt angle is estimated using a **complementary filter**:
-
-```
-angle = α·(angle + gyro·dt) + (1−α)·acc_angle      α = 0.98
-```
-
-### Lab 13 – MIMO Light Following
-
-Two control loops run simultaneously at different frequencies:
-
-| Loop | Variable | Frequency | Role |
-|------|----------|-----------|------|
-| Inner (fast) | Tilt angle | 200 Hz | Balance stabilization |
-| Outer (slow) | Light error | 20 Hz | Directional navigation |
-
-Motor commands combine both loops:
-
-```
-u_left  = u_balance + u_direction
-u_right = u_balance − u_direction
-```
-
-### Lab 14 – Model Validation
-
-The closed-loop system is modelled as a 3rd-order ODE:
-
-```
-θ'' + (Kd/J)·θ' + ((Kp − mgh)/J)·θ + (Ki/J)·∫θ = 0
-```
-
-Unknown parameters **m**, **h**, **J** are identified by matching the simulated impulse response to experimental data (RMSE ≤ 1°).
-
-### Lab 15 – Lead–Lag Controller
-
-A lead–lag compensator replaces PID for improved frequency-domain performance:
-
-```
-C(s) = K · [(s + z₁)/(s + p₁)] · [(s + z₂)/(s + p₂)]
-```
-
-Discretized using the **Tustin (bilinear) method** at 200 Hz and implemented as a difference equation:
-
-```c
-u[k] = a1*u[k-1] + a2*u[k-2]
-     + b0*e[k]   + b1*e[k-1] + b2*e[k-2];
-```
+| Sensor | ESP32 GPIO |
+|---|---|
+| Left | 3 |
+| Center | 2 |
+| Right | 1 |
 
 ---
 
-## Repository Structure
+## Software Dependencies
 
+Install these libraries via the **Arduino Library Manager** or **PlatformIO**:
+
+- `Wire` (built-in)
+- `WiFi` (built-in with ESP32 core)
+- `WebServer` (built-in with ESP32 core)
+- `math.h` (built-in)
+
+**ESP32 Arduino Core** is required. Install it through the Arduino Boards Manager:
+`https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
+
+---
+
+## Configuration
+
+Open `BalanceBot.ino` and update the Wi-Fi credentials before uploading:
+
+```cpp
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 ```
-self-balancing-robot/
-├── src/
-│   ├── main.cpp              # Main control loop (ESP32 / PlatformIO)
-│   ├── config.h              # All tunable parameters (PID gains, pins, timing)
-│   ├── pid.h                 # Generic PID controller class
-│   ├── angle_estimator.h     # Complementary filter
-│   ├── motor.h               # Motor driver interface (ESP32 LEDC PWM)
-│   └── data_logger.h         # Ring-buffer logger for impulse response (Lab 14)
-├── matlab/
-│   ├── lab14_model_validation.m   # Parameter identification & model validation
-│   └── lab15_leadlag_design.m     # Lead–lag design, Bode, simulation, discretization
-├── data/
-│   └── impulse_response.csv  # (paste Serial Monitor output here for Lab 14)
-├── platformio.ini            # PlatformIO build configuration
-├── .gitignore
-└── README.md
+
+### Default PID Values
+
+| Parameter | Default |
+|---|---|
+| Kp (Balance) | 18.1 |
+| Ki (Balance) | 0.16 |
+| Kd (Balance) | 2.7 |
+| Angle Setpoint | -0.8° |
+| Kp (Light) | 0.050 |
+| Ki (Light) | 0.000 |
+| Kd (Light) | 0.006 |
+
+### Calibration Offsets
+
+```cpp
+float gyroYOffset = -0.40;
+float accZOffset  = 1939.25;
 ```
+
+These may need adjustment for your specific MPU6050 unit. Place the robot perfectly upright, read the raw values via Serial, and update accordingly.
 
 ---
 
 ## Getting Started
 
-### Prerequisites
+1. Clone this repository
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/BalanceBot.git
+   ```
+2. Open `BalanceBot.ino` in the Arduino IDE
+3. Set your Wi-Fi credentials
+4. Select **ESP32** as the target board
+5. Upload the sketch
+6. Open the Serial Monitor at **115200 baud** — the ESP32's IP address will be printed once connected
+7. Navigate to `http://<IP_ADDRESS>` in any browser on the same network
 
-- [PlatformIO](https://platformio.org/) (VSCode extension recommended)
-- MATLAB R2021a or later (Control System Toolbox required)
-- [I2Cdevlib MPU6050](https://github.com/jrowberg/i2cdevlib) library (auto-installed by PlatformIO)
+---
 
-### Build & Flash
+## Web Dashboard
 
-```bash
-# Clone the repo
-git clone https://github.com/<your-username>/self-balancing-robot.git
-cd self-balancing-robot
+The dashboard is served directly by the ESP32 and provides:
 
-# Build and upload via PlatformIO
-pio run --target upload
+- **Live Telemetry** — Angle, error, PID outputs, motor signals, and light error
+- **Tilt Indicator** — Visual bar showing ±30° tilt in real time
+- **Motor Output Bars** — Left and right motor signals
+- **LDR Readout** — Live values for all three light sensors with active-sensor highlighting
+- **Balance PID Panel** — Adjust Kp, Ki, Kd, and angle setpoint on the fly
+- **Light PID Panel** — Adjust light-following gains without reflashing
 
-# Open serial monitor (115200 baud)
-pio device monitor
+Dashboard updates at **100 ms** intervals.
+
+---
+
+## Control Architecture
+
+```
+MPU6050 ──► Complementary Filter ──► Angle Estimate
+                                          │
+                          balance_offset + forwardBoost
+                                          │
+                                    PID (100 Hz)
+                                          │
+                               balance signal (u_bal)
+                                          │
+           LDR Array ──► Light PID (20 Hz) ──► turn signal (u_dir)
+                                          │
+                         Left Motor = u_bal + u_dir
+                         Right Motor = u_bal − u_dir
 ```
 
-### Tuning the PID Gains
+---
 
-All gains are in `src/config.h`. Suggested tuning sequence:
+## How Light Following Works
 
-1. Set `KI_BAL = 0`, `KD_BAL = 0`. Increase `KP_BAL` until the robot reacts to tilt.
-2. Increase `KD_BAL` to reduce oscillations.
-3. Add small `KI_BAL` to eliminate steady-state lean.
+- **Left/Right LDRs** generate a steering error: `error = leftL - rightL`
+- A PID loop converts this error into a turn correction applied to both motors
+- **Center LDR** detects a bright source directly ahead and applies a small forward lean (`forwardBoost = 1.2°`) while reducing turn authority — making the robot drive toward frontal light
 
 ---
 
-## Lab 14 – Data Logging Workflow
+## License
 
-1. Flash the code and balance the robot.
-2. Give the robot a small push (~3–5°).
-3. The logger auto-triggers on `DISTURBANCE_THRESHOLD_DEG` and fills a 2000-sample buffer.
-4. CSV data is printed to Serial Monitor between `--- DATA START ---` and `--- DATA END ---` markers.
-5. Copy the CSV block into `data/impulse_response.csv`.
-6. Run `matlab/lab14_model_validation.m` — adjust `m`, `h`, `J` until RMSE ≤ 1°.
+MIT License — free to use, modify, and distribute.
 
 ---
 
-## Lab 15 – Lead–Lag Implementation
+## Contributing
 
-1. Run `matlab/lab14_model_validation.m` to confirm model parameters.
-2. Run `matlab/lab15_leadlag_design.m` — it prints the discretized difference equation coefficients.
-3. Paste those coefficients into your embedded implementation.
-4. Compare step response metrics (overshoot, settling time) against PID.
-
----
-
-## Results Summary
-
-| Metric | PID (Lab 12) | Lead–Lag (Lab 15) |
-|--------|:---:|:---:|
-| Overshoot | — % | — % |
-| Settling Time | — s | — s |
-| Phase Margin | — ° | — ° |
-
-*(Fill in after experimental testing)*
-
----
-
-## Authors
-
-**Ali Ahsan (Malik)**  
-B.Sc. Electrical Engineering, UET Lahore  
-Session 2020
-
----
-
-## Acknowledgements
-
-Lab manuals designed by the **Electrical Engineering Department, UET Lahore** as part of the Control Systems Lab CEP series.
+Pull requests are welcome. For major changes, please open an issue first to discuss what you'd like to change.
